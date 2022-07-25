@@ -82,11 +82,10 @@ def main ():
     start_date = '2020-01-01 UTC'
     end_date = '2022-03-03 UTC'
     interval = '1D'
-    tickers = [str(input('Enter the first ticker name (Yahoo Finance): ')), str(input('Enter the second ticker name (Yahoo Finance): '))]
+    tickers = [str(input('Enter the ticker name (Yahoo Finance): ')) for i in range(1,3)]
     df = get_data(tickers, start_date, end_date, interval)
     df.index = pd.to_datetime(df.index)
     df.columns = [x.strip('.SA') for x in df.columns]  ## STRIP '.SA' FROM BRAZILIAN COMPANIES 
-
 
 
     ### MAKE THE COINTEGRATION WITH YOUR NUMBER OF DAYS ### 
