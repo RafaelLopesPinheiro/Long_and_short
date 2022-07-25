@@ -3,16 +3,26 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import scipy.stats as stats
+import os
 
 
-
-def get_data(tickers, startDate, endDate, interval):
+def download_data(tickers, startDate, endDate, interval):
     data = vbt.YFData.download(symbols=tickers, start=startDate, end=endDate, interval=interval).get('Close')
     return data
 
 
-def create_csv(data):
-    data.to_csv('petr_longshort.csv', index_label='Date')
+def create_csv(data, file_name):
+    data.to_csv(file_name)
+    # if datetime.now() > data.index[0]:
+
+def get_data(tickers, startDate, endDate, interval):
+    file_name = f"{tickers[0]}_{tickers[1]}.csv"
+    file_exists = os.path.exists(file_name)
+    if file_exists:
+        return pd.read_csv(file_name, index_col='Date')
+    else:
+        create_csv(download_data(tickers, startDate, endDate, interval), file_name)
+        return pd.read_csv(file_name, index_col='Date')
 
 
 def plot_reglin(x, y):
@@ -24,6 +34,7 @@ def plot_reglin(x, y):
     plt.xlabel('{}'.format(x.columns[0]), size=14)
     plt.ylabel('{}'.format(x.columns[1]), size=14)
 
+
 def z_score(resid):
     return resid - (resid.mean()/resid.std())
 
@@ -32,13 +43,13 @@ def delta_resid(z_score):
     return z_score - z_score.shift(1)
 
 
-def stats_t(slope, stderror):  ## STATS_T NEED TO BE MORE THAN (- 3.44) TO BE COINTEGRATED FOR SAMPLE SIZE > 100
+def stats_t(slope, stderror, cut_off):  ## STATS_T NEED TO BE MORE THAN (- 3.44) TO BE COINTEGRATED FOR SAMPLE SIZE > 100
     t = slope/stderror
-    if t <= -3.43:  
+    if t <= cut_off:  
         print('\nAssets Cointegrated!')
     else:
         print('Assets Not cointegrated!')
-    print('Stats t =',t)
+    print(f'Stats t = {round(t,5)}')
     return t
 
 
@@ -50,20 +61,19 @@ def plot_zscore(z):
     plt.axhline(y=z.mean() - (z.std()*2))
     plt.xticks(rotation = -45, fontsize=15)
     plt.title('Z-Score', fontsize=20)
-    plt.text(z.index[0], 0.7, 'If Z_score >= upper line, sell Y and buy X')
-    plt.text(z.index[0], -0.7, 'If Z_score <= bottom line, buy Y and sell X')
+    plt.text(z.index[0], (z.mean() + (z.std()*2)+0.5), 'If Z_score >= upper line, sell Y and buy X')
+    plt.text(z.index[0], (z.mean() - (z.std()*2)-0.5), 'If Z_score <= bottom line, buy Y and sell X')
     plt.grid()
 
     
 
-
 def half_life(z, reg_resid):
-    half = round(-np.log10(2)/reg_resid.slope, 2)
+    half = round(-np.log10(2)/reg_resid.slope, 2) ## Half life formula
     print('Half life =',half, 'dias. \n')
     
 
 def size_position(data, result):
-    print(f'Ratio = {result*100:.0f} shares of', f'{data.columns[0]}', f'\n \tfor 100 shares of {data.columns[1]}')
+    print(f'Ratio = {result*100:.0f} shares of', f'{data.columns[0]}', f'\n \tper 100 shares of {data.columns[1]}')
     # print('\n multiply the ratio with the number of shares you want to trade')
 
 
@@ -72,15 +82,11 @@ def main ():
     start_date = '2020-01-01 UTC'
     end_date = '2022-03-03 UTC'
     interval = '1D'
-    tickers = ['PETR3.SA', 'PETR4.SA']
-    
-    ## LINES TO GET DATA FROM YAHOO FINANCE
-    # data = get_data(tickers, start_date, end_date, interval)
-    # create_csv(data)
-
-    df = pd.read_csv('petr_longshort.csv', index_col='Date')
+    tickers = [str(input('Enter the first ticker name (Yahoo Finance): ')), str(input('Enter the second ticker name (Yahoo Finance): '))]
+    df = get_data(tickers, start_date, end_date, interval)
     df.index = pd.to_datetime(df.index)
     df.columns = [x.strip('.SA') for x in df.columns]  ## STRIP '.SA' FROM BRAZILIAN COMPANIES 
+
 
 
     ### MAKE THE COINTEGRATION WITH YOUR NUMBER OF DAYS ### 
@@ -102,9 +108,9 @@ def main ():
     delta_res = delta_resid(z)
     result2 = stats.linregress(x = z[:-1], y = delta_res[1:]) 
 
- 
-    stats_t(result2.slope, result2.stderr)
-    print('Confidence level =',(100 * (1 - result2.pvalue))) 
+    cut_off = -3.43
+    stats_t(result2.slope, result2.stderr, cut_off)
+    print('Confidence level =',(round(100 * (1 - result2.pvalue), 5))) 
     half_life(z, result2)
     plot_zscore(z)
 
