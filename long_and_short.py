@@ -13,7 +13,7 @@ def download_data(tickers, startDate, endDate, interval):
 
 def create_csv(data, file_name):
     data.to_csv(file_name)
-    # if datetime.now() > data.index[0]:
+
 
 def get_data(tickers, startDate, endDate, interval):
     file_name = f"{tickers[0]}_{tickers[1]}.csv"
@@ -61,8 +61,8 @@ def plot_zscore(z):
     plt.axhline(y=z.mean() - (z.std()*2))
     plt.xticks(rotation = -45, fontsize=15)
     plt.title('Z-Score', fontsize=20)
-    plt.text(z.index[0], (z.mean() + (z.std()*2)+0.5), 'If Z_score >= upper line, sell Y and buy X')
-    plt.text(z.index[0], (z.mean() - (z.std()*2)-0.5), 'If Z_score <= bottom line, buy Y and sell X')
+    plt.text(z.index[0], (z.mean() + (z.std()*2))*1.10, 'If Z_score >= upper line, sell Y and buy X')
+    plt.text(z.index[0], (z.mean() - (z.std()*2))*0.89, 'If Z_score <= bottom line, buy Y and sell X')
     plt.grid()
 
     
@@ -74,7 +74,6 @@ def half_life(z, reg_resid):
 
 def size_position(data, result):
     print(f'Ratio = {result*100:.0f} shares of', f'{data.columns[0]}', f'\n \tper 100 shares of {data.columns[1]}')
-    # print('\n multiply the ratio with the number of shares you want to trade')
 
 
 
@@ -85,11 +84,11 @@ def main ():
     tickers = [str(input('Enter the ticker name (Yahoo Finance): ')) for i in range(1,3)]
     df = get_data(tickers, start_date, end_date, interval)
     df.index = pd.to_datetime(df.index)
-    df.columns = [x.strip('.SA') for x in df.columns]  ## STRIP '.SA' FROM BRAZILIAN COMPANIES 
+    df.columns = [x.strip('(.SA)') for x in df.columns]  ## STRIP '.SA' FROM BRAZILIAN COMPANIES
 
 
     ### MAKE THE COINTEGRATION WITH YOUR NUMBER OF DAYS ### 
-    time_period = 300
+    time_period = 500
     X_independent = df.iloc[-time_period:,0]
     Y_dependent = df.iloc[-time_period:,1]
 
