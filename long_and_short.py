@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import scipy.stats as stats
-plt.style.use('ggplot')
+
 
 
 def get_data(tickers, startDate, endDate, interval):
@@ -28,13 +28,13 @@ def z_score(resid):
     return resid - (resid.mean()/resid.std())
 
 
-def delta_resid(resid, z_score):
+def delta_resid(z_score):
     return z_score - z_score.shift(1)
 
 
 def stats_t(slope, stderror):  ## STATS_T NEED TO BE MORE THAN (- 3.44) TO BE COINTEGRATED FOR SAMPLE SIZE > 100
     t = slope/stderror
-    if t <= -3.44:  
+    if t <= -3.43:  
         print('\nAssets Cointegrated!')
     else:
         print('Assets Not cointegrated!')
@@ -50,7 +50,10 @@ def plot_zscore(z):
     plt.axhline(y=z.mean() - (z.std()*2))
     plt.xticks(rotation = -45, fontsize=15)
     plt.title('Z-Score', fontsize=20)
+    plt.text(z.index[0], 0.7, 'If Z_score >= upper line, sell Y and buy X')
+    plt.text(z.index[0], -0.7, 'If Z_score <= bottom line, buy Y and sell X')
     plt.grid()
+
     
 
 
@@ -58,6 +61,10 @@ def half_life(z, reg_resid):
     half = round(-np.log10(2)/reg_resid.slope, 2)
     print('Half life =',half, 'dias. \n')
     
+
+def size_position(data, result):
+    print(f'Ratio = {result*100:.0f} shares of', f'{data.columns[0]}', f'\n \tfor 100 shares of {data.columns[1]}')
+    # print('\n multiply the ratio with the number of shares you want to trade')
 
 
 
@@ -68,8 +75,8 @@ def main ():
     tickers = ['PETR3.SA', 'PETR4.SA']
     
     ## LINES TO GET DATA FROM YAHOO FINANCE
-    data = get_data(tickers, start_date, end_date, interval)
-    create_csv(data)
+    # data = get_data(tickers, start_date, end_date, interval)
+    # create_csv(data)
 
     df = pd.read_csv('petr_longshort.csv', index_col='Date')
     df.index = pd.to_datetime(df.index)
@@ -92,16 +99,16 @@ def main ():
 
 
     z = z_score(residual)
-    delta_res = delta_resid(residual, z)
+    delta_res = delta_resid(z)
     result2 = stats.linregress(x = z[:-1], y = delta_res[1:]) 
 
-
+ 
     stats_t(result2.slope, result2.stderr)
     print('Confidence level =',(100 * (1 - result2.pvalue))) 
     half_life(z, result2)
     plot_zscore(z)
 
-
+    size_position(df, result.slope)
 
 
 
