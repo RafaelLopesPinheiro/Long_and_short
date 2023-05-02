@@ -8,4 +8,5 @@ This project do the cointegration between two assets using Linear regression of 
 * Show the Half life for trading purpose
 
 The user need to run the program, insert in the console 2 assets tickers (yahoof finance) then the program will calculate and plot the regression and Z-score indicating if the assets are cointegrated or not to do Long & Short Trade.
-Ps: Yahoo finance only make available 700 days until today, this will be the window of the cointegration between assets.
+
+_Ps: Yahoo finance only make available 700 days until today, this will be the window of the cointegration between assets._
