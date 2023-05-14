@@ -7,6 +7,17 @@ import os
 
 
 def download_data(tickers, startDate, endDate, interval):
+    """Download OHLC data of the tickers
+
+    Args:
+        tickers (str or list): tickers of the assets
+        startDate (str): start date period
+        endDate (str): end date period
+        interval (str): interval types: 1D, 1H, 1M
+
+    Returns:
+        pd.DataFrame: data
+    """
     data = vbt.YFData.download(symbols=tickers, start=startDate, end=endDate, interval=interval).get('Close')
     return data
 
@@ -16,6 +27,17 @@ def create_csv(data, file_name):
 
 
 def get_data(tickers, startDate, endDate, interval):
+    """Create a csv with the stocks data for saving and logging purpose.
+
+    Args:
+        tickers (str or list): tickers of the assets
+        startDate (str): start date period
+        endDate (str): end date period
+        interval (str): interval types: 1D, 1H, 1M
+
+    Returns:
+        pd.DataFrame : DataFrame created
+    """
     file_name = f"{tickers[0]}_{tickers[1]}.csv"
     file_exists = os.path.exists(file_name)
     if file_exists:
@@ -26,6 +48,13 @@ def get_data(tickers, startDate, endDate, interval):
 
 
 def plot_reglin(x, y):
+    """
+    Plot the linear regression model for the X and Y variables.
+
+    Args:
+        x (pd.DataFrame): The exogenous variabels of the model
+        y (pd.DataFrame): The Endogenous variables of the model
+    """
     plt.figure(figsize=(10,4))
     plt.plot(x.iloc[:, 0], x.iloc[:, 1],'ob', label='original data') 
     plt.plot(x.iloc[:, 0], y, '-r', label='fitted data')
@@ -36,6 +65,14 @@ def plot_reglin(x, y):
 
 
 def z_score(resid):
+    """ Function to calculate the Z score by subtracting the residual difference between the mean and standard deviation ratio.
+    
+    Args:
+        resid (pd.Series): Residual between Y_true and Y_pred.
+
+    Returns:
+        float: Z score value.
+    """
     return resid - (resid.mean()/resid.std())
 
 
@@ -44,6 +81,16 @@ def delta_resid(z_score):
 
 
 def stats_t(slope, stderror, cut_off):  ## STATS_T NEED TO BE MORE THAN (- 3.44) TO BE COINTEGRATED FOR SAMPLE SIZE > 100
+    """Calculate T-statistic and check if is lower than cut_off value to be cointegrated for sample size > 100
+
+    Args:
+        slope (float): Slope of the regression
+        stderror (float): Stdev of regression
+        cut_off (float): Cut off value for cointegration
+
+    Returns:
+        float : Stats-T value
+    """
     t = slope/stderror
     if t <= cut_off:  
         print('\nAssets Cointegrated!')
@@ -64,15 +111,28 @@ def plot_zscore(z):
     plt.text(z.index[0], (z.mean() + (z.std()*2))*1.10, 'If Z_score >= upper line, sell Y and buy X')
     plt.text(z.index[0], (z.mean() - (z.std()*2))*0.89, 'If Z_score <= bottom line, buy Y and sell X')
     plt.grid()
+    plt.show()
 
     
 
 def half_life(z, reg_resid):
+    """Calculate the half life of the cointegration
+
+    Args:
+        z (float): Z-Score 
+        reg_resid (list): Z-Score regression results
+    """
     half = round(-np.log10(2)/reg_resid.slope, 2) ## Half life formula
     print('Half life =',half, 'dias. \n')
     
 
 def size_position(data, result):
+    """Print the ratio of each stock to buy/sell
+
+    Args:
+        data (_type_): _description_
+        result (_type_): _description_
+    """
     print(f'Ratio = {result*100:.0f} shares of', f'{data.columns[0]}', f'\n \tper 100 shares of {data.columns[1]}')
 
 
@@ -104,12 +164,12 @@ def main ():
 
     z = z_score(residual)
     delta_res = delta_resid(z)
-    result2 = stats.linregress(x = z[:-1], y = delta_res[1:]) 
+    z_regression = stats.linregress(x = z[:-1], y = delta_res[1:]) 
 
     cut_off = -3.43
-    stats_t(result2.slope, result2.stderr, cut_off)
-    print('Confidence level =',(round(100 * (1 - result2.pvalue), 5))) 
-    half_life(z, result2)
+    stats_t(z_regression.slope, z_regression.stderr, cut_off)
+    print('Confidence level =',(round(100 * (1 - z_regression.pvalue), 5))) 
+    half_life(z, z_regression)
     plot_zscore(z)
 
     size_position(df, result.slope)
