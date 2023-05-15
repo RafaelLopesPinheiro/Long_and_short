@@ -1,9 +1,10 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import vectorbt as vbt
+import yfinance as yf
 import scipy.stats as stats
 import os
+import datetime as dt
 
 
 def download_data(tickers, startDate, endDate, interval):
@@ -18,7 +19,8 @@ def download_data(tickers, startDate, endDate, interval):
     Returns:
         pd.DataFrame: data
     """
-    data = vbt.YFData.download(symbols=tickers, start=startDate, end=endDate, interval=interval).get('Close')
+    data = yf.download(tickers=tickers, start=startDate, end=endDate, interval=interval)['Adj Close']
+    data.ffill(inplace=True)
     return data
 
 
@@ -26,7 +28,7 @@ def create_csv(data, file_name):
     data.to_csv(file_name)
 
 
-def get_data(tickers, startDate, endDate, interval):
+def load_data(tickers, startDate, endDate, interval):
     """Create a csv with the stocks data for saving and logging purpose.
 
     Args:
@@ -39,17 +41,13 @@ def get_data(tickers, startDate, endDate, interval):
         pd.DataFrame : DataFrame created
     """
     file_name = f"{tickers[0]}_{tickers[1]}.csv"
-    file_exists = os.path.exists(file_name)
-    if file_exists:
-        return pd.read_csv(file_name, index_col='Date')
-    else:
-        create_csv(download_data(tickers, startDate, endDate, interval), file_name)
-        return pd.read_csv(file_name, index_col='Date')
+    data = download_data(tickers, startDate, endDate, interval)
+    create_csv(data, file_name)
+    return pd.read_csv(file_name, index_col='Date')
 
 
 def plot_reglin(x, y):
-    """
-    Plot the linear regression model for the X and Y variables.
+    """Plot the linear regression model for the X and Y variables.
 
     Args:
         x (pd.DataFrame): The exogenous variabels of the model
@@ -65,7 +63,7 @@ def plot_reglin(x, y):
 
 
 def z_score(resid):
-    """ Function to calculate the Z score by subtracting the residual difference between the mean and standard deviation ratio.
+    """Calculate the Z score by subtracting the residual difference between the mean and standard deviation ratio.
     
     Args:
         resid (pd.Series): Residual between Y_true and Y_pred.
@@ -100,23 +98,23 @@ def stats_t(slope, stderror, cut_off):  ## STATS_T NEED TO BE MORE THAN (- 3.44)
     return t
 
 
-def plot_zscore(z):
+def plot_zscore(z, names):
     plt.figure(figsize=(10,4))
     plt.plot(z, '-k')
     plt.axhline(y= z.mean(), color='y')
     plt.axhline(y=z.mean() + (z.std()*2))
     plt.axhline(y=z.mean() - (z.std()*2))
     plt.xticks(rotation = -45, fontsize=15)
-    plt.title('Z-Score', fontsize=20)
+    plt.title(f'Z-Score ({names[0]} x {names[1]})', fontsize=20)
     plt.text(z.index[0], (z.mean() + (z.std()*2))*1.10, 'If Z_score >= upper line, sell Y and buy X')
-    plt.text(z.index[0], (z.mean() - (z.std()*2))*0.89, 'If Z_score <= bottom line, buy Y and sell X')
+    plt.text(z.index[0], (z.mean() - (z.std()*2))*1.13, 'If Z_score <= bottom line, buy Y and sell X')
     plt.grid()
     plt.show()
 
     
 
 def half_life(z, reg_resid):
-    """Calculate the half life of the cointegration
+    """Calculate half life of the cointegration
 
     Args:
         z (float): Z-Score 
@@ -126,28 +124,30 @@ def half_life(z, reg_resid):
     print('Half life =',half, 'dias. \n')
     
 
-def size_position(data, result):
+def size_position(data, slope):
     """Print the ratio of each stock to buy/sell
 
     Args:
-        data (_type_): _description_
-        result (_type_): _description_
+        data (pd.DataFrame): _description_
+        slope (float): _description_
     """
-    print(f'Ratio = {result*100:.0f} shares of', f'{data.columns[0]}', f'\n \tper 100 shares of {data.columns[1]}')
+    print(f'Ratio = {slope*100:.0f} shares of', f'{data.columns[0]}', f'\n \tper 100 shares of {data.columns[1]}')
 
 
 
 def main ():
-    start_date = '2020-01-01 UTC'
-    end_date = '2022-03-03 UTC'
+    start_date = dt.date(2020, 1, 1)
+    end_date = dt.date(2022, 7, 3)
     interval = '1D'
-    tickers = [str(input('Enter the ticker name (Yahoo Finance): ')) for i in range(1,3)]
-    df = get_data(tickers, start_date, end_date, interval)
+    tickers = [str(input('Enter the ticker name (Yahoo Finance): ')) for i in range(2)]
+
+    df = load_data(tickers, start_date, end_date, interval)
     df.index = pd.to_datetime(df.index)
-    df.columns = [x.strip('(.SA)') for x in df.columns]  ## STRIP '.SA' FROM BRAZILIAN COMPANIES
+    if "(.SA)" in df.columns:
+        df.columns = [x.strip('(.SA)') for x in df.columns]  ## STRIP '.SA' FROM BRAZILIAN COMPANIES
 
 
-    ### MAKE THE COINTEGRATION WITH YOUR NUMBER OF DAYS ### 
+    ## MAKE THE COINTEGRATION WITH YOUR NUMBER OF DAYS ## 
     time_period = 500
     X_independent = df.iloc[-time_period:,0]
     Y_dependent = df.iloc[-time_period:,1]
@@ -170,11 +170,9 @@ def main ():
     stats_t(z_regression.slope, z_regression.stderr, cut_off)
     print('Confidence level =',(round(100 * (1 - z_regression.pvalue), 5))) 
     half_life(z, z_regression)
-    plot_zscore(z)
+    plot_zscore(z, df.columns.values)
 
     size_position(df, result.slope)
-
-
 
 
 if __name__ == '__main__':
